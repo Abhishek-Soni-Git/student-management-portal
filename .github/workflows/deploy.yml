@@ -1,0 +1,56 @@
+name: deploy
+
+on:
+  push:
+    branches: [main]
+    paths: ["backend/**", "frontend/**", "k8s/**", ".github/workflows/deploy.yml"]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  RG: rg-sms-dev
+  AKS: aks-sms-dev
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Find ACR
+        run: |
+          ACR_NAME=$(az acr list -g "$RG" --query "[0].name" -o tsv)
+          echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
+          echo "ACR_LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${GITHUB_SHA::8}" >> "$GITHUB_ENV"
+
+      - name: Build and push images
+        run: |
+          az acr login -n "$ACR_NAME"
+          docker build -t "$ACR_LOGIN_SERVER/sms-backend:$IMAGE_TAG"  ./backend
+          docker build -t "$ACR_LOGIN_SERVER/sms-frontend:$IMAGE_TAG" ./frontend
+          docker push "$ACR_LOGIN_SERVER/sms-backend:$IMAGE_TAG"
+          docker push "$ACR_LOGIN_SERVER/sms-frontend:$IMAGE_TAG"
+
+      - name: Deploy to AKS
+        run: |
+          az aks get-credentials -g "$RG" -n "$AKS" --overwrite-existing
+          kubectl apply -f k8s/00-namespace.yaml
+          for f in k8s/10-mongo.yaml k8s/20-backend.yaml k8s/30-frontend.yaml k8s/40-ingress.yaml; do
+            envsubst '${ACR_LOGIN_SERVER} ${IMAGE_TAG}' < "$f" | kubectl apply -f -
+          done
+          kubectl -n sms rollout status deployment/backend  --timeout=180s
+          kubectl -n sms rollout status deployment/frontend --timeout=180s
+
+      - name: Show URL
+        run: |
+          kubectl -n app-routing-system get svc nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' | xargs -I{} echo "App URL: http://{}"

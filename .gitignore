@@ -1,48 +1,10 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-venv/
-env/
-ENV/
-.venv
-
-# Node
-node_modules/
-dist/
-.DS_Store
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Docker
-*.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# MongoDB
-mongo_data/
-# secrets
 .env
-.env.*
-!.env.example
-
-# dependencies / build
-node_modules/
-__pycache__/
-venv/
-.venv/
-dist/
-
-# terraform
+*.env
 .terraform/
 *.tfstate
 *.tfstate.*
-*.tfplan
+tfplan
+node_modules/
+__pycache__/
+*firebase*adminsdk*.json
+serviceAccount*.json
