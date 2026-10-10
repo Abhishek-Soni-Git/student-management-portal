@@ -1,5 +1,5 @@
 # Production image: static build served by unprivileged nginx (no dev server, no root, no node_modules at runtime).
-FROM node:20-alpine AS build
+FROM node:25-alpine AS build
 WORKDIR /app
 COPY package*.json ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
