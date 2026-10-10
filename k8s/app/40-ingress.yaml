@@ -1,3 +1,4 @@
+# HTTP only for now (no domain yet). Add a host + TLS secret/cert-manager or Key Vault cert before real users.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -21,4 +22,4 @@ spec:
               service:
                 name: frontend
                 port:
-                  number: 5173
+                  number: 8080

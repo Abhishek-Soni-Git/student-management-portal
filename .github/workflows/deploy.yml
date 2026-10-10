@@ -3,54 +3,89 @@ name: deploy
 on:
   push:
     branches: [main]
-    paths: ["backend/**", "frontend/**", "k8s/**", ".github/workflows/deploy.yml"]
+    paths: ["backend/**", "frontend/**", "k8s/app/**", ".github/workflows/deploy.yml"]
   workflow_dispatch:
 
 permissions:
-  id-token: write
+  id-token: write # OIDC to Azure
   contents: read
 
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
 env:
-  RG: rg-sms-dev
-  AKS: aks-sms-dev
+  ACR_LOGIN_SERVER: ${{ vars.ACR_NAME }}.azurecr.io
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: prod # approval + main-only (set by bootstrap.sh)
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set image tag to the commit SHA (immutable)
+        run: echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
+
+      - name: Build images
+        run: |
+          docker build -t "$ACR_LOGIN_SERVER/sms-backend:$IMAGE_TAG"  ./backend
+          docker build -t "$ACR_LOGIN_SERVER/sms-frontend:$IMAGE_TAG" -f frontend/Dockerfile.prod ./frontend
+
+      # Gate: nothing with a fixable CRITICAL/HIGH vulnerability reaches the registry.
+      - name: Scan backend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.ACR_LOGIN_SERVER }}/sms-backend:${{ env.IMAGE_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: Scan frontend image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.ACR_LOGIN_SERVER }}/sms-frontend:${{ env.IMAGE_TAG }}
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: "1"
+
       - uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          client-id: ${{ vars.DEPLOY_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Find ACR
+      - name: Push images to ACR
         run: |
-          ACR_NAME=$(az acr list -g "$RG" --query "[0].name" -o tsv)
-          echo "ACR_NAME=$ACR_NAME" >> "$GITHUB_ENV"
-          echo "ACR_LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)" >> "$GITHUB_ENV"
-          echo "IMAGE_TAG=${GITHUB_SHA::8}" >> "$GITHUB_ENV"
-
-      - name: Build and push images
-        run: |
-          az acr login -n "$ACR_NAME"
-          docker build -t "$ACR_LOGIN_SERVER/sms-backend:$IMAGE_TAG"  ./backend
-          docker build -t "$ACR_LOGIN_SERVER/sms-frontend:$IMAGE_TAG" ./frontend
+          az acr login --name "${{ vars.ACR_NAME }}"
           docker push "$ACR_LOGIN_SERVER/sms-backend:$IMAGE_TAG"
           docker push "$ACR_LOGIN_SERVER/sms-frontend:$IMAGE_TAG"
 
-      - name: Deploy to AKS
+      - name: Connect to AKS (Entra token, no static kubeconfig)
         run: |
-          az aks get-credentials -g "$RG" -n "$AKS" --overwrite-existing
-          kubectl apply -f k8s/00-namespace.yaml
-          for f in k8s/10-mongo.yaml k8s/20-backend.yaml k8s/30-frontend.yaml k8s/40-ingress.yaml; do
+          sudo az aks install-cli
+          az aks get-credentials -g "${{ vars.APP_RG }}" -n "${{ vars.AKS_NAME }}" --overwrite-existing
+          kubelogin convert-kubeconfig -l azurecli
+
+      - name: Create Mongo secret from GitHub environment secret
+        env:
+          MONGO_PASSWORD: ${{ secrets.MONGO_PASSWORD }}
+        run: |
+          kubectl -n sms create secret generic mongo-auth \
+            --from-literal=MONGO_INITDB_ROOT_USERNAME=admin \
+            --from-literal=MONGO_INITDB_ROOT_PASSWORD="$MONGO_PASSWORD" \
+            --from-literal=MONGO_URI="mongodb://admin:${MONGO_PASSWORD}@mongo:27017/?authSource=admin" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy
+        run: |
+          for f in k8s/app/*.yaml; do
             envsubst '${ACR_LOGIN_SERVER} ${IMAGE_TAG}' < "$f" | kubectl apply -f -
           done
+          kubectl -n sms rollout status statefulset/mongo   --timeout=300s
           kubectl -n sms rollout status deployment/backend  --timeout=180s
           kubectl -n sms rollout status deployment/frontend --timeout=180s
 
-      - name: Show URL
+      - name: App URL
         run: |
-          kubectl -n app-routing-system get svc nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' | xargs -I{} echo "App URL: http://{}"
+          ip=$(kubectl -n sms get ingress sms -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+          echo "App URL: http://${ip:-<pending, check again in a minute>}" | tee -a "$GITHUB_STEP_SUMMARY"

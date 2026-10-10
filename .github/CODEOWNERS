@@ -1,0 +1,5 @@
+# Changes to infra, pipelines and cluster policy need the owner's review once branch protection is on.
+/infra/              @Abhishek-Soni-Git
+/k8s/                @Abhishek-Soni-Git
+/scripts/            @Abhishek-Soni-Git
+/.github/            @Abhishek-Soni-Git

@@ -1,10 +1,15 @@
 .env
 *.env
+.env.*
 .terraform/
 *.tfstate
 *.tfstate.*
+*.tfvars
 tfplan
 node_modules/
 __pycache__/
 *firebase*adminsdk*.json
 serviceAccount*.json
+*.pem
+*.key
+cred-*.json
