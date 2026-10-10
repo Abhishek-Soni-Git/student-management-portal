@@ -26,7 +26,7 @@ variable "node_count" {
 
 variable "node_vm_size" {
   type        = string
-  default     = "Standard_B2s"
+  default     = "Standard_B2s_v2"
   description = "If you hit a quota/availability error try Standard_D2s_v3 or Standard_B2ms."
 }
 
