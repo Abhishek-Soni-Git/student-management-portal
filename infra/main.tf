@@ -72,9 +72,10 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 
   # --- patching
-  automatic_upgrade_channel = "patch"
-  node_os_upgrade_channel   = "NodeImage"
-  image_cleaner_enabled     = true
+  automatic_upgrade_channel    = "patch"
+  node_os_upgrade_channel      = "NodeImage"
+  image_cleaner_enabled        = true
+  image_cleaner_interval_hours = 48
 
   default_node_pool {
     name                        = "system"
