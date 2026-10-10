@@ -46,6 +46,9 @@ resource "azurerm_container_registry" "acr" {
 }
 
 # ---------------------------------------------------------------- AKS
+# GitHub-hosted runners ko API server tak pahunchna padta hai (unke IP badalte rehte hain).
+# Auth Entra + Azure RBAC se hai, local admin band hai. Private cluster + self-hosted runner baad ke step me.
+#trivy:ignore:AZU-0041
 resource "azurerm_kubernetes_cluster" "aks" {
   name                = var.aks_name
   location            = data.azurerm_resource_group.rg.location
