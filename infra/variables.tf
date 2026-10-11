@@ -21,7 +21,7 @@ variable "kubernetes_namespace" {
 
 variable "node_count" {
   type    = number
-  default = 1
+  default = 2
 }
 
 variable "node_vm_size" {
