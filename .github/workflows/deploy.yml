@@ -36,6 +36,15 @@ jobs:
       - name: Set image tag to the commit SHA (immutable)
         run: echo "IMAGE_TAG=${GITHUB_SHA::12}" >> "$GITHUB_ENV"
 
+      - name: Trivy config scan (Terraform + Kubernetes)
+        uses: aquasecurity/trivy-action@0.35.0
+        with:
+          version: v0.69.3
+          scan-type: config
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+
       - name: Build images
         run: |
           docker build -t "$ACR_LOGIN_SERVER/$BACKEND_IMAGE:$IMAGE_TAG"  ./backend
