@@ -30,7 +30,7 @@ jobs:
       run:
         working-directory: infra
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v3
       - name: Init
         run: |
@@ -52,7 +52,7 @@ jobs:
     env:
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v3
 
       - name: Terraform init
