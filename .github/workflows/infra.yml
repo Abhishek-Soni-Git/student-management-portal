@@ -16,7 +16,6 @@ env:
   ARM_USE_OIDC: "true"
   ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-  TF_VAR_deploy_principal_object_id: ${{ vars.DEPLOY_SP_OBJECT_ID }}
   TF_VAR_kubernetes_namespace: ${{ vars.K8S_NAMESPACE }}
   TF_IN_AUTOMATION: "true"
 
@@ -26,7 +25,7 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     env:
-      ARM_CLIENT_ID: ${{ vars.PLAN_CLIENT_ID }}
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
     defaults:
       run:
         working-directory: infra
@@ -51,7 +50,7 @@ jobs:
       group: infra-apply
       cancel-in-progress: false
     env:
-      ARM_CLIENT_ID: ${{ vars.INFRA_CLIENT_ID }}
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: hashicorp/setup-terraform@v3
@@ -74,7 +73,7 @@ jobs:
 
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.INFRA_CLIENT_ID }}
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 

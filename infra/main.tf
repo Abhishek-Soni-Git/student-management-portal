@@ -116,25 +116,7 @@ resource "azurerm_role_assignment" "kubelet_acr_pull" {
 resource "azurerm_role_assignment" "deploy_acr_push" {
   scope                            = azurerm_container_registry.acr.id
   role_definition_id               = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${local.role_acr_push}"
-  principal_id                     = var.deploy_principal_object_id
-  principal_type                   = "ServicePrincipal"
-  skip_service_principal_aad_check = true
-}
-
-# ... fetch a kubeconfig ...
-resource "azurerm_role_assignment" "deploy_aks_cluster_user" {
-  scope                            = azurerm_kubernetes_cluster.aks.id
-  role_definition_id               = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${local.role_aks_cluster_user}"
-  principal_id                     = var.deploy_principal_object_id
-  principal_type                   = "ServicePrincipal"
-  skip_service_principal_aad_check = true
-}
-
-# ... and write objects ONLY inside the app namespace (not cluster-wide).
-resource "azurerm_role_assignment" "deploy_namespace_writer" {
-  scope                            = "${azurerm_kubernetes_cluster.aks.id}/namespaces/${var.kubernetes_namespace}"
-  role_definition_id               = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.Authorization/roleDefinitions/${local.role_aks_rbac_writer}"
-  principal_id                     = var.deploy_principal_object_id
+  principal_id                     = data.azurerm_client_config.current.object_id
   principal_type                   = "ServicePrincipal"
   skip_service_principal_aad_check = true
 }
