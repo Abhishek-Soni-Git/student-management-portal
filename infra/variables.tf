@@ -30,11 +30,6 @@ variable "node_vm_size" {
   description = "If you hit a quota/availability error try Standard_D2s_v3 or Standard_B2ms."
 }
 
-variable "deploy_principal_object_id" {
-  type        = string
-  description = "Object ID of the deploy identity (GitHub variable DEPLOY_SP_OBJECT_ID)."
-}
-
 variable "tags" {
   type = map(string)
   default = {
